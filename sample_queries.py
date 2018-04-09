@@ -1,0 +1,49 @@
+from elasticsearch import Elasticsearch
+from elasticsearch_dsl import Search, Q
+
+client = Elasticsearch()
+
+
+#Match all documents
+def match_all():
+    s = Search(using=client, index="sample_film_index")
+    s = s.query('match_all')
+    response = s.execute()
+    print "Num hits:", len(response.to_dict()['hits']['hits']) #default 10 limit
+
+#Search in title
+def free_search_in_title(word):
+    s = Search(using=client, index="sample_film_index")
+    q = Q('match', title=word)
+    s = s.query(q)
+    s = s.highlight_options(pre_tags='<mark>', post_tags='</mark>') # for html
+    s = s.highlight('title', word, fragment_size=999999999, number_of_fragments=1)
+    response = s.execute()
+    print "Num hits for", word, len(response.to_dict()['hits']['hits'])
+    for hit in response:
+        print hit.meta.score #doc score
+        print hit.meta.highlight #highlighted snippet
+
+#Match exact phrase in text
+def match_phrase_in_text(phrase):
+    s = Search(using=client, index="sample_film_index")
+    q = Q('match_phrase', text=phrase)
+    s = s.query(q)
+    s = s.highlight_options(pre_tags='<mark>', post_tags='</mark>') # for html
+    s = s.highlight('text', fragment_size=999999999, number_of_fragments=1)
+    response = s.execute()
+    print "Num hits for", phrase, len(response.to_dict()['hits']['hits'])
+    for hit in response:
+        print hit.meta.score #doc score
+        print hit.meta.highlight #highlighted snippet
+
+
+match_all()
+free_search_in_title('cats')
+#Compare to:
+free_search_in_title('Cats') #the 'simple' analyzer does lowercasing
+free_search_in_title('cat') #but not stemming
+match_phrase_in_text('she knows')
+
+#More options for queris:
+#http://elasticsearch-dsl.readthedocs.io/en/latest/search_dsl.html
