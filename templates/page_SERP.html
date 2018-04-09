@@ -32,7 +32,7 @@ p.cannotfind {
     border-bottom: 2px dotted black;
 }
 .contents{
-    margin-top:280px;
+    margin-top:400px;
     padding:0;
     clear:left;
 }
@@ -41,12 +41,20 @@ p.cannotfind {
 <div class="searchbox">
 <h3 class="header"> Wikipedia Film Search </h3>
 <form action="/results" name="search" method="post">
+
 <dl>
     <dd><textarea rows="3" cols="150"  name="query">{{queries['text']}}</textarea>  
     <dd>Search in starring: <input type="text" style="width:300px" name="starring" value="{{queries['star']}}">
+    <dd>Search in language: <input type="text" style="width:300px" name="language" value="{{queries['language']}}">
+    <dd>Search in country: <input type="text" style="width:300px" name="country" value="{{queries['country']}}">
+    <dd>Search in director: <input type="text" style="width:300px" name="director" value="{{queries['director']}}">
+    <dd>Search in location: <input type="text" style="width:300px" name="location" value="{{queries['location']}}">
+    <dd>Search in time: <input type="text" style="width:300px" name="time" value="{{queries['time']}}">
+    <dd>Search in categories: <input type="text" style="width:300px" name="categories" value="{{queries['categoreis']}}">
     <dd>Runtime: min <input type="text" name="mintime" value={{queries['mintime']}}> max <input type="text" name="maxtime" value={{queries['maxtime']}}>
     <dd><input type="submit" value="Search">
 </dl>
+
 </form>
 <p style="font-size:14px">Found {{res_num}} results. Showing {{ 1+(page_num-1)*10 }} - {% if (10+(page_num-1)*10) > res_num %}{{res_num}}{% else %}{{ 10+(page_num-1)*10 }}{% endif %}</p>
 {% if page_num > 1 %}
