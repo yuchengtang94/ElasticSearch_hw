@@ -71,6 +71,11 @@ p.cannotfind {
 </div>
 
 <div class="contents">
+{#display inform message#}
+{% if one_term == True %}
+    <h3 >Cannot find result, Using match at least one term criteria now</h3>
+{% endif %}
+
 <p>
     {% if stop_len %}
         Ignoring term:

@@ -127,7 +127,7 @@ def results(page):
     # store query values to display in search box while browsing
     shows = {}
     shows['text'] = text_query
-    shows['star'] = star_query
+    shows['staring'] = star_query
     # add by me
     # shows['runtime'] = runtime_query
     shows['language'] = language_query
@@ -141,157 +141,205 @@ def results(page):
     shows['mintime'] = mintime_query
        
     # search
-    search = Movie.search()
-    
-    # search for tuntime
-    s = search.query('range', runtime={'gte':mintime, 'lte':maxtime})
+    def search_result(isconjunctive):
 
-    # search for matching text query
-    # first : search for all word query(single word with no phrase)
+        search = Movie.search()
 
-    if len(word_query) > 0:
-        s = s.query('multi_match', query=word_query, type='cross_fields', fields=['title', 'text'], operator='and')
+        # search for tuntime
+        s = search.query('range', runtime={'gte':mintime, 'lte':maxtime})
 
-        # s = s.query('match_phrase', title = text_query)
-    # second : search for all phrase_query
+        # search for matching text query
+        # first : search for all word query(single word with no phrase)
+        if isconjunctive :
 
-    if len(phrase_query) > 0:
-        for str in phrase_query:
-            s = s.query('bool', should = [{'match_phrase': {'title' : str}}, {'match_phrase': {'text' : str}}], minimum_should_match = 1)
+            if len(word_query) > 0:
+                s = s.query('multi_match', query=word_query, type='cross_fields', fields=['title', 'text'], operator='and')
 
-    # search for matching stars
-    # You should support multiple values (list)
-    if len(star_query) > 0:
-        s = s.query('match', starring=star_query)
+                # s = s.query('match_phrase', title = text_query)
+            # second : search for all phrase_query
 
-    if len(language_query) > 0:
-        s = s.query('match', language=language_query)
+            if len(phrase_query) > 0:
+                for str in phrase_query:
+                    s = s.query('bool', should = [{'match_phrase': {'title' : str}}, {'match_phrase': {'text' : str}}], minimum_should_match = 1)
 
-    if len(country_query) > 0:
-        s = s.query('match', country=country_query)
+        # disjunctive
+        else:
+            disjunc_query = []
+            if len(word_query) > 0:
+                for word in word_query.split(' '):
+                    qtitle = {}
+                    qtitle['match'] = {'title': word}
+                    qtext = {}
+                    qtext['match'] = {'text': word}
+                    disjunc_query.append(qtitle)
+                    disjunc_query.append(qtext)
 
-    if len(director_query) > 0:
-        s = s.query('match', director=director_query)
+            if len(phrase_query) > 0:
+                for phrase in phrase_query:
+                    qtitle = {}
+                    qtitle['match_phrase'] = {'title': phrase}
+                    qtext = {}
+                    qtext['match_phrase'] = {'text': phrase}
+                    disjunc_query.append(qtitle)
+                    disjunc_query.append(qtext)
 
-    if len(location_query) > 0:
-        s = s.query('match', location=location_query)
+            s = s.query('bool', should=disjunc_query, minimum_should_match=1)
 
-    if len(time_query) > 0:
-        s = s.query('match', time=time_query)
+        # search for matching stars
 
-    if len(categories_query) > 0:
-        s = s.query('match', categories=categories_query)
+        print(text_query)
+        # You should support multiple values (list)
+        if len(star_query) > 0:
+            s = s.query('match', starring=star_query)
+
+        if len(language_query) > 0:
+            s = s.query('match', language=language_query)
+
+        if len(country_query) > 0:
+            s = s.query('match', country=country_query)
+
+        if len(director_query) > 0:
+            s = s.query('match', director=director_query)
+
+        if len(location_query) > 0:
+            s = s.query('match', location=location_query)
+
+        if len(time_query) > 0:
+            s = s.query('match', time=time_query)
+
+        if len(categories_query) > 0:
+            s = s.query('match', categories=categories_query)
 
 
-    # highlight
-    s = s.highlight_options(pre_tags='<mark>', post_tags='</mark>')
-    s = s.highlight('text', fragment_size=999999999, number_of_fragments=1)
-    s = s.highlight('title', fragment_size=999999999, number_of_fragments=1)
-    s = s.highlight('language', fragment_size=999999999, number_of_fragments=1)
-    s = s.highlight('country', fragment_size=999999999, number_of_fragments=1)
-    s = s.highlight('director', fragment_size=999999999, number_of_fragments=1)
-    s = s.highlight('location', fragment_size=999999999, number_of_fragments=1)
-    s = s.highlight('time', fragment_size=999999999, number_of_fragments=1)
-    s = s.highlight('categories', fragment_size=999999999, number_of_fragments=1)
+        # highlight
+        s = s.highlight_options(pre_tags='<mark>', post_tags='</mark>')
+        s = s.highlight('text', fragment_size=999999999, number_of_fragments=1)
+        s = s.highlight('title', fragment_size=999999999, number_of_fragments=1)
 
-    # extract data for current page
-    start = 0 + (page-1)*10
-    end = 10 + (page-1)*10
+        s = s.highlight('starring', fragment_size=999999999, number_of_fragments=1)
+        s = s.highlight('language', fragment_size=999999999, number_of_fragments=1)
+        s = s.highlight('country', fragment_size=999999999, number_of_fragments=1)
+        s = s.highlight('director', fragment_size=999999999, number_of_fragments=1)
+        s = s.highlight('location', fragment_size=999999999, number_of_fragments=1)
+        s = s.highlight('time', fragment_size=999999999, number_of_fragments=1)
+        s = s.highlight('categories', fragment_size=999999999, number_of_fragments=1)
 
-    # execute search
-    response = s[start:end].execute()
+        # extract data for current page
+        start = 0 + (page-1)*10
+        end = 10 + (page-1)*10
 
-    # insert data into response
-    resultList = {}
-    for hit in response.hits:
-        result={}
-        result['score'] = hit.meta.score
+        # execute search
+        response = s[start:end].execute()
 
-        if 'highlight' in hit.meta:
-            if 'title' in hit.meta.highlight:
-                result['title'] = hit.meta.highlight.title[0]
+        # insert data into response
+        resultList = {}
+        for hit in response.hits:
+            result={}
+            result['score'] = hit.meta.score
+
+            if 'highlight' in hit.meta:
+                if 'title' in hit.meta.highlight:
+                    result['title'] = hit.meta.highlight.title[0]
+                else:
+                    result['title'] = hit.title
+
+                if 'text' in hit.meta.highlight:
+                    result['text'] = hit.meta.highlight.text[0]
+                else:
+                    result['text'] = hit.text
+                ## add by me
+                if 'starring' in hit.meta.highlight:
+                    result['starring'] = hit.meta.highlight.starring[0]
+                else:
+                    result['starring'] = hit.starring
+
+                if 'language' in hit.meta.highlight:
+                    result['language'] = hit.meta.highlight.language[0]
+                else:
+                    result['language'] = hit.language
+
+                if 'country' in hit.meta.highlight:
+                    result['country'] = hit.meta.highlight.country[0]
+                else:
+                    result['country'] = hit.country
+
+                if 'director' in hit.meta.highlight:
+                    result['director'] = hit.meta.highlight.director[0]
+                else:
+                    result['director'] = hit.director
+
+                if 'location' in hit.meta.highlight:
+                    result['location'] = hit.meta.highlight.location[0]
+                else:
+                    result['location'] = hit.location
+
+                if 'time' in hit.meta.highlight:
+                    result['time'] = hit.meta.highlight.time[0]
+                else:
+                    result['time'] = hit.time
+
+                if 'categories' in hit.meta.highlight:
+                    result['categories'] = hit.meta.highlight.categories[0]
+                else:
+                    result['categories'] = hit.categories
+                #
+
             else:
                 result['title'] = hit.title
-
-            if 'text' in hit.meta.highlight:
-                result['text'] = hit.meta.highlight.text[0]
-            else:
                 result['text'] = hit.text
-            ## add by me
-            if 'language' in hit.meta.highlight:
-                result['language'] = hit.meta.highlight.language[0]
-            else:
+                ## add by me
+                result['starring'] = hit.starring
                 result['language'] = hit.language
-
-            if 'country' in hit.meta.highlight:
-                result['country'] = hit.meta.highlight.country[0]
-            else:
                 result['country'] = hit.country
-
-            if 'director' in hit.meta.highlight:
-                result['director'] = hit.meta.highlight.director[0]
-            else:
                 result['director'] = hit.director
-
-            if 'location' in hit.meta.highlight:
-                result['location'] = hit.meta.highlight.location[0]
-            else:
                 result['location'] = hit.location
-
-            if 'time' in hit.meta.highlight:
-                result['time'] = hit.meta.highlight.time[0]
-            else:
                 result['time'] = hit.time
-
-            if 'categories' in hit.meta.highlight:
-                result['categories'] = hit.meta.highlight.categories[0]
-            else:
                 result['categories'] = hit.categories
-            #
+                ##
 
-        else:
-            result['title'] = hit.title
-            result['text'] = hit.text
-            ## add by me
-            result['language'] = hit.language
-            result['country'] = hit.country
-            result['director'] = hit.director
-            result['location'] = hit.location
-            result['time'] = hit.time
-            result['categories'] = hit.categories
-            ##
+            resultList[hit.meta.id] = result
 
-        resultList[hit.meta.id] = result
+        # gresults = resultList
 
+        # get the number of results
+        result_num = response.hits.total
+
+        return result_num, resultList
+
+    result_num, resultList = search_result(True)
     gresults = resultList
-    
-    # get the number of results
-    result_num = response.hits.total
       
     # if we find the results, extract title and text information from doc_data, else do nothing
     if result_num > 0:
         return render_template('page_SERP.html', results=resultList, res_num=result_num, page_num=page, queries=shows)
     else:
-
         message = []
-        if len(text_query) > 0:
-            message.append('Unknown search term: '+text_query)
-        if len(star_query) > 0:
-            message.append('Cannot find star: '+star_query)
-        if len(language_query) > 0:
-            message.append('Cannot find language: '+language_query)
-        if len(country_query) > 0:
-            message.append('Cannot find country: '+country_query)
-        if len(director_query) > 0:
-            message.append('Cannot find director: '+director_query)
-        if len(location_query) > 0:
-            message.append('Cannot find location: '+location_query)
-        if len(time_query) > 0:
-            message.append('Cannot find time: '+time_query)
-        if len(categories_query) > 0:
-            message.append('Cannot find categories: '+categories_query)
-        
-        return render_template('page_SERP.html', results=message, res_num=result_num, page_num=page, queries=shows)
+        result_num, resultList = search_result(False)
+        gresults = resultList
+
+        if result_num > 0 :
+
+            return render_template('page_SERP.html', results=resultList, res_num=result_num, page_num=page,
+                                   queries=shows, one_term = True)
+        else:
+            if len(text_query) > 0:
+                message.append('Unknown search term: '+text_query)
+            if len(star_query) > 0:
+                message.append('Cannot find star: '+star_query)
+            if len(language_query) > 0:
+                message.append('Cannot find language: '+language_query)
+            if len(country_query) > 0:
+                message.append('Cannot find country: '+country_query)
+            if len(director_query) > 0:
+                message.append('Cannot find director: '+director_query)
+            if len(location_query) > 0:
+                message.append('Cannot find location: '+location_query)
+            if len(time_query) > 0:
+                message.append('Cannot find time: '+time_query)
+            if len(categories_query) > 0:
+                message.append('Cannot find categories: '+categories_query)
+
+            return render_template('page_SERP.html', results=message, res_num=result_num, page_num=page, queries=shows)
 
 
 @app.route("/documents/<res>", methods=['GET'])

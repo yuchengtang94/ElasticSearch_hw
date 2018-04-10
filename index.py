@@ -1,6 +1,7 @@
 import json
 import re
 import time
+import types
 
 from elasticsearch import Elasticsearch
 from elasticsearch import helpers
@@ -18,23 +19,28 @@ es = Elasticsearch()
 
 # Define analyzers
 
-my_analyzer = analyzer('custom',
-                       tokenizer='standard',
-                       filter=['lowercase', 'stop'])
+title_analyzer = analyzer('custom', tokenizer='pattern',
+                               filter=['lowercase', 'stop'],
+                               char_filter =['html_strip'])
+starring_analyzer = analyzer('custom', tokenizer='pattern', filter=['lowercase', 'stop'])
+language_analyzer = analyzer('custom', tokenizer='standard', filter=['lowercase'])
+my_analyzer = analyzer('custom', tokenizer = 'standard', filter=['lowercase'], char_filter =['html_strip'])
+
+categories_analyzer = analyzer('custom', tokenizer='pattern', filter=['lowercase'], char_filter =['html_strip'])
 # --- Add more analyzers here ---
 
 # Define document mapping
 # You can use existed analyzers or use ones you define yourself as above
 class Movie(DocType):
-    title = Text(analyzer=my_analyzer)
+    title = Text(analyzer=title_analyzer)
     text = Text(analyzer='simple')
-    starring = Text(analyzer=my_analyzer)
-    language = Text(analyzer=my_analyzer)
+    starring = Text(analyzer=starring_analyzer)
+    language = Text(analyzer=language_analyzer)
     country = Text(analyzer=my_analyzer)
     director = Text(analyzer=my_analyzer)
     location = Text(analyzer=my_analyzer)
     time = Text(analyzer=my_analyzer)
-    categories = Text(analyzer=my_analyzer)
+    categories = Text(analyzer=categories_analyzer)
 
     runtime = Integer()
     # --- Add more fields here ---
@@ -68,7 +74,7 @@ def buildIndex():
             "title":movies[str(mid)]['title'],
             "text":movies[str(mid)]['text'],
             "starring":movies[str(mid)]['starring'],
-            "runtime": "0", #movies[str(mid)]['runtime'] # You would like to convert runtime to integer (in minutes)
+            "runtime": get_runtime(movies[str(mid)]['runtime']), #movies[str(mid)]['runtime'] # You would like to convert runtime to integer (in minutes)
             # --- Add more fields here ---
             "language": movies[str(mid)]['language'],
             "country": movies[str(mid)]['country'],
@@ -80,8 +86,36 @@ def buildIndex():
         for mid in range(1, size+1)
     ]
     
-    helpers.bulk(es, actions) 
-    
+    helpers.bulk(es, actions)
+
+
+def get_runtime(runtime):
+    print(runtime)
+    # some runtime box is list type, so we should make a judgement here
+    if type(runtime) is not types.ListType:
+
+        minutes = re.findall('(\d+) *min', runtime, flags=re.I)
+
+        hours = re.findall('(\d+) *h', runtime, flags=re.I)
+
+        time_minutes = 0
+        for min in minutes:
+            time_minutes = time_minutes + int(min)
+
+        for hour in hours:
+            time_minutes = time_minutes + 60 * int(hour)
+
+        print(time_minutes)
+
+        return time_minutes
+    else:
+        time_minutes = 0
+        for run_time in runtime:
+            time_minutes = time_minutes + get_runtime(run_time)
+        print(time_minutes)
+        return time_minutes
+
+
 def main():
     start_time = time.time()
     buildIndex()
