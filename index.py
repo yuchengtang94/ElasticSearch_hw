@@ -32,7 +32,7 @@ categories_analyzer = analyzer('custom', tokenizer='pattern', filter=['lowercase
 # Define document mapping
 # You can use existed analyzers or use ones you define yourself as above
 class Movie(DocType):
-    title = Text(analyzer=title_analyzer)
+    title = Text(analyzer='simple')
     text = Text(analyzer='simple')
     starring = Text(analyzer=starring_analyzer)
     language = Text(analyzer=language_analyzer)
