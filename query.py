@@ -5,7 +5,7 @@ from index import Movie
 from pprint import pprint
 from elasticsearch_dsl import Q
 from elasticsearch_dsl.utils import AttrList
-
+import types
 
 app = Flask(__name__)
 
@@ -32,6 +32,22 @@ def search():
 
 def extract_phrase(text_query):
     return re.findall('\"(.*?)\"', text_query), re.sub('\".*?\"', '', text_query)
+
+
+# This is my custom highlighter for list in elastic search
+def my_highliter(query, origin_text):
+
+    if type(origin_text) is not types.UnicodeType:
+        for text in query.split(' '):
+            for i in range(0, len(origin_text)):
+                origin_text[i] = re.sub(text, '<mark>' + text + '</mark>', origin_text[i])
+
+        # print(highlited_result)
+    else:
+        for text in query.split(' '):
+            origin_text = re.sub(text, '<mark>' + text + '</mark>', origin_text)
+
+    return origin_text
 
 @app.route("/results", defaults={'page': 1}, methods=['GET','POST'])
 @app.route("/results/<page>", methods=['GET','POST'])
@@ -127,7 +143,7 @@ def results(page):
     # store query values to display in search box while browsing
     shows = {}
     shows['text'] = text_query
-    shows['staring'] = star_query
+    shows['starring'] = star_query
     # add by me
     # shows['runtime'] = runtime_query
     shows['language'] = language_query
@@ -139,9 +155,10 @@ def results(page):
     #
     shows['maxtime'] = maxtime_query
     shows['mintime'] = mintime_query
-       
+
+
     # search
-    def search_result(isconjunctive):
+    def search_result(is_conjunctive):
 
         search = Movie.search()
 
@@ -150,7 +167,7 @@ def results(page):
 
         # search for matching text query
         # first : search for all word query(single word with no phrase)
-        if isconjunctive :
+        if is_conjunctive :
 
             if len(word_query) > 0:
                 s = s.query('multi_match', query=word_query, type='cross_fields', fields=['title', 'text'], operator='and')
@@ -187,7 +204,7 @@ def results(page):
 
         # search for matching stars
 
-        print(text_query)
+        print(star_query)
         # You should support multiple values (list)
         if len(star_query) > 0:
             s = s.query('match', starring=star_query)
@@ -216,7 +233,7 @@ def results(page):
         s = s.highlight('text', fragment_size=999999999, number_of_fragments=1)
         s = s.highlight('title', fragment_size=999999999, number_of_fragments=1)
 
-        s = s.highlight('starring', fragment_size=999999999, number_of_fragments=1)
+        s = s.highlight('starring', fragment_size=999999999, number_of_fragments = 1)
         s = s.highlight('language', fragment_size=999999999, number_of_fragments=1)
         s = s.highlight('country', fragment_size=999999999, number_of_fragments=1)
         s = s.highlight('director', fragment_size=999999999, number_of_fragments=1)
@@ -238,6 +255,8 @@ def results(page):
             result['score'] = hit.meta.score
 
             if 'highlight' in hit.meta:
+
+                print(hit.meta.highlight)
                 if 'title' in hit.meta.highlight:
                     result['title'] = hit.meta.highlight.title[0]
                 else:
@@ -249,27 +268,28 @@ def results(page):
                     result['text'] = hit.text
                 ## add by me
                 if 'starring' in hit.meta.highlight:
-                    result['starring'] = hit.meta.highlight.starring[0]
+                    result['starring'] = my_highliter(star_query, hit.starring)
+                    # result['starring'] = hit.meta.highlight.starring[0]
                 else:
                     result['starring'] = hit.starring
 
                 if 'language' in hit.meta.highlight:
-                    result['language'] = hit.meta.highlight.language[0]
+                    result['language'] = my_highliter(language_query, hit.language)
                 else:
                     result['language'] = hit.language
 
                 if 'country' in hit.meta.highlight:
-                    result['country'] = hit.meta.highlight.country[0]
+                    result['country'] = my_highliter(country_query, hit.country)
                 else:
                     result['country'] = hit.country
 
                 if 'director' in hit.meta.highlight:
-                    result['director'] = hit.meta.highlight.director[0]
+                    result['director'] = my_highliter(director_query, hit.director)
                 else:
                     result['director'] = hit.director
 
                 if 'location' in hit.meta.highlight:
-                    result['location'] = hit.meta.highlight.location[0]
+                    result['location'] = my_highliter(location_query, hit.location)
                 else:
                     result['location'] = hit.location
 
@@ -279,7 +299,9 @@ def results(page):
                     result['time'] = hit.time
 
                 if 'categories' in hit.meta.highlight:
-                    result['categories'] = hit.meta.highlight.categories[0]
+
+                    result['categories'] = my_highliter(categories_query, hit.categories)
+                    # result['categories'] = hit.meta.highlight.categories[0]
                 else:
                     result['categories'] = hit.categories
                 #

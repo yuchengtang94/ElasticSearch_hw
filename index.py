@@ -19,10 +19,8 @@ es = Elasticsearch()
 
 # Define analyzers
 
-title_analyzer = analyzer('custom', tokenizer='pattern',
-                               filter=['lowercase', 'stop'],
-                               char_filter =['html_strip'])
-starring_analyzer = analyzer('custom', tokenizer='pattern', filter=['lowercase', 'stop'])
+title_text_analyzer = analyzer('custom', tokenizer='whitespace')
+starring_analyzer = analyzer('custom', tokenizer='standard', filter=['lowercase', 'stop'])
 language_analyzer = analyzer('custom', tokenizer='standard', filter=['lowercase'])
 my_analyzer = analyzer('custom', tokenizer = 'standard', filter=['lowercase'], char_filter =['html_strip'])
 
@@ -32,8 +30,8 @@ categories_analyzer = analyzer('custom', tokenizer='pattern', filter=['lowercase
 # Define document mapping
 # You can use existed analyzers or use ones you define yourself as above
 class Movie(DocType):
-    title = Text(analyzer='simple')
-    text = Text(analyzer='simple')
+    title = Text(analyzer=title_text_analyzer)
+    text = Text(analyzer=title_text_analyzer)
     starring = Text(analyzer=starring_analyzer)
     language = Text(analyzer=language_analyzer)
     country = Text(analyzer=my_analyzer)
